@@ -1,0 +1,6 @@
+__pychache__
+SpeechCommands/speech_commands_v0.02
+venv/
+wandb/
+data/
+speech_commands_v0.02.tar.gz
