@@ -17,7 +17,9 @@ hyperparameters = {
         'EPOCHES': 100,
         'BATCH_SIZE': 32,
         'IMG_CHANNEL': 3,
-        'CLASSES': 35
+        'CLASSES': 35,
+        'AUGMENTATION_1': 'TEST1',
+        'AUGMENTATION_2': 'TEST2'
 }
 
 
@@ -68,22 +70,26 @@ def train(model, loss, optimizer, trainloader,config, modeltitle = "test"):
 
     for epoch in range(config.EPOCHS):
         progress_bar = tqdm.tqdm(total=len(trainloader), unit='step')
+        
         for audio,labels in trainloader:
-    
+
             optimizer.zero_grad()
 
             # CALCUALTE AUGMENTATION 1
-            audio_1 = augment1()
+            audio_1 = getTransform(config.AUGMENTATION_1, audio)
             # CALCUALTE AUGMENTATION 2
-            audio_2 = augment2()
+            audio_2 = getTransform(config.AUGMENTATION_2, audio)
             
             # CREATE THE FINAL BATCH
             audio = createFinalbatch(audio_1, audio_2)
+            
             # Create the augmented spectograms size [BATCH_SIZE, 3, 200, 200]
             spectograms = createSpectogtrams(audio)
 
+            # Model's ouput two emb vectors
             audio_emb, spect_emb = model(spectograms,audio)
             
+            # Calculate loss and backward
             loss = loss(audio_emb, spect_emb)
             loss.backward()
             optimizer.step()
@@ -96,9 +102,7 @@ def train(model, loss, optimizer, trainloader,config, modeltitle = "test"):
 
             # save loss to statistics
             losses.append(loss.item())
-
             
-        
         # end for batch 
         
         # Log on wandb at each epoch

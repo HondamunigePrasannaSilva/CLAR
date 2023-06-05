@@ -9,11 +9,7 @@
     2. Temporal Transformations
     
     (a) Fade in/out
-    (b) Time Masking (TM): given an audio signal, in this transformation we randomly select a small
-        segment of the full signal and set the signal values in that segment to normal noise or a 
-        constant value. In our implementation, we not only randomly selected the location of the
-        masked segment but also we randomly selected the size of the segment. The size of the 
-        masked segment was set to maximally be 1/8 of the input signal.
+    (b) Time Masking
     (c) Time Shift (TS): randomly shifts the audio samples forwards or backwards. Samples that 
         roll beyond the last position are re-introduced at the first position (rollover). The 
         degree and direction of the shifts were randomly selected for each audio. The maximum 
@@ -86,7 +82,6 @@ def noise_injection(audio):
     snr = SignalNoiseRatio()
     print(snr(audio,noise))
     
-
     waveform_with_noise = transform(audio, noise)
     return waveform_with_noise
 
@@ -104,14 +99,32 @@ def time_masking(audio):
     masked_loc = [i for i in range(audio.shape[1])]
     masked_len = [i for i in range(1, int(audio.shape[1]/8))]
 
+def getTransform(title):
+    if(title == "pitchshift"):
+        trasform = pitchshift
+    if(title == "fade_in_out"):
+        trasform = fade_in_out
+    if(title == "noise_injection"):
+        trasform = noise_injection
+    if(title == "time_masking"):
+        trasform = time_masking
+    
 
-def trasform(augmentation, input):
+def transform(augmentation, input):
     """
     augmentation: augmentation name
     input with batch -> [32, 1, 16000]
     """
+    augmentedAudio = torch.tensor(size = [input.shape[0], input.shape[1], input.shape[2]])
 
+    transform = getTransform(augmentation)
+
+    for i in range(input.shape[0]):
+        augmentedAudio[i] = transform(input[i])
     
+    return augmentedAudio
+
+
 
 
 
