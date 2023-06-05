@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from data import *
+#from data import *
 
 
 
@@ -39,14 +39,14 @@ class block(nn.Module):
     
 class ResNet1D(nn.Module):
     # Resnet 18 [2, 2, 2, 2]
-    def __init__(self, block, image_channels, num_classes):
+    def __init__(self, block, num_classes):
         super(ResNet1D, self).__init__()
         # for resnet18
         layers = [2, 2, 2, 2]
         self.expansion = 1
 
         self.in_channels = 64
-        self.conv1 = nn.Conv1d(image_channels, self.in_channels, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv1d(1, self.in_channels, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm1d(self.in_channels)
         self.relu = nn.ReLU()
         self.maxpool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
@@ -58,7 +58,9 @@ class ResNet1D(nn.Module):
         self.layer4 = self._make_layer(block, layers[3], 512, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool1d(output_size=1)
-        self.fc = nn.Linear(512*self.expansion, num_classes)
+        # tagliare qui per prendere 
+        # size after avgpool = [32, 512, 1]
+        #self.fc = nn.Linear(512*self.expansion, num_classes)
     
     def forward(self,x):
         x = self.conv1(x)
@@ -72,8 +74,9 @@ class ResNet1D(nn.Module):
         x = self.layer4(x)
 
         x = self.avgpool(x)
-        x = x.reshape(x.shape[0], -1)
-        x = self.fc(x)
+
+        #x = x.reshape(x.shape[0], -1)
+        #x = self.fc(x)
 
         return x
 
@@ -103,13 +106,18 @@ class ResNet1D(nn.Module):
 
 
 
-def CreateResNet1D(img_channels=1, num_classes = 10):
-    return ResNet1D(block, image_channels=img_channels, num_classes=num_classes)
+def CreateResNet1D( num_classes = 10):
+    return ResNet1D(block, num_classes=num_classes)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from tqdm import tqdm
 
 
+
+
+
+
+""" 
 def model_pipeline():
 
 
@@ -197,4 +205,4 @@ def test(model, test_loader):
         return correct/total
     
 
-model_pipeline()
+model_pipeline()"""

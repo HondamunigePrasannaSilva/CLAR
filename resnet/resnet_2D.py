@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-class block(nn.Module):
+class block_resnet2d(nn.Module):
     def __init__(self, in_channels, out_channels, identity_downsample=None,stride=1):
-        super(block, self).__init__()
+        super(block_resnet2d, self).__init__()
         
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(out_channels)
@@ -54,7 +54,8 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, layers[3], 512, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
-        self.fc = nn.Linear(512*self.expansion, num_classes)
+        
+        #self.fc = nn.Linear(512*self.expansion, num_classes)
     
     def forward(self,x):
         x = self.conv1(x)
@@ -68,8 +69,8 @@ class ResNet(nn.Module):
         x = self.layer4(x)
 
         x = self.avgpool(x)
-        x = x.reshape(x.shape[0], -1)
-        x = self.fc(x)
+        #x = x.reshape(x.shape[0], -1)
+        #x = self.fc(x)
 
         return x
 
@@ -99,7 +100,12 @@ class ResNet(nn.Module):
 
 
 
-def ResNet18(img_channels=3, num_classes = 10):
-    return ResNet(block, image_channels=img_channels, num_classes=num_classes)
+def CreateResNet2D(img_channels=3, num_classes = 10):
+    return ResNet(block_resnet2d, image_channels=img_channels, num_classes=num_classes)
 
+"""
+model = CreateResNet2D()
 
+iamge = torch.rand(size=[32,3,100,100])
+
+outut = model(iamge)"""

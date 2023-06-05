@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from torchaudio.datasets import SPEECHCOMMANDS
 import os
 import torch
-
+import torchaudio
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class SubsetSC(SPEECHCOMMANDS):
@@ -56,10 +56,14 @@ def collate_fn(batch):
 
     # Group the list of tensors into a batched tensor
     tensors = pad_sequence(tensors)
+    #
+    #   INSERT AUGMENTATION HERE!
+    #
+
     targets = torch.stack(targets)
     return tensors, targets
 
-def getData():
+def getData(batch_size = 32):
 
 
     train_set = SubsetSC("training")
@@ -75,18 +79,24 @@ def getData():
 
 
     # creating Dataloaders
-    train_loader = torch.utils.data.DataLoader( train_set, batch_size=32,shuffle=True,collate_fn=collate_fn, num_workers=num_workers,pin_memory=pin_memory)
-    val_loader = torch.utils.data.DataLoader(val_set,batch_size=32,shuffle=True,collate_fn=collate_fn,num_workers=num_workers,pin_memory=pin_memory,)
-    test_loader = torch.utils.data.DataLoader(test_set,batch_size=32,shuffle=False,drop_last=False,collate_fn=collate_fn,num_workers=num_workers,pin_memory=pin_memory,)
+    train_loader = torch.utils.data.DataLoader( train_set, batch_size=batch_size,shuffle=True,collate_fn=collate_fn, num_workers=num_workers,pin_memory=pin_memory)
+    val_loader = torch.utils.data.DataLoader(val_set,batch_size=batch_size,shuffle=True,collate_fn=collate_fn,num_workers=num_workers,pin_memory=pin_memory,)
+    test_loader = torch.utils.data.DataLoader(test_set,batch_size=batch_size,shuffle=False,drop_last=False,collate_fn=collate_fn,num_workers=num_workers,pin_memory=pin_memory,)
     
     return train_loader, test_loader, val_loader
 
 
+
+from augmentation import *
 if __name__ == "__main__":
 
     #testing dataloaders!
     train_loader,test_loader, val_loader  = getData()
     audios, labels = next(iter(train_loader))
+    #spectogram = torchaudio.transforms.MelSpectrogram()
 
+    #a = spectogram(audios[0])
     plt.plot(audios[0].T)
+    a = noise_injection(audios[0])
+    plt.plot(a.T.detach().numpy()) 
     plt.show()

@@ -1,0 +1,1 @@
+### download here speech_commands_V0.02 file! 
