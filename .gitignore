@@ -1,5 +1,5 @@
 __pycache__/
-SpeechCommands/speech_commands_v0.02/
+SpeechCommands/
 venv/
 wandb/
 data/

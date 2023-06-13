@@ -7,23 +7,24 @@ import utils as utils
 from data import *
 from net import *
 from augmentation import *
-
+from contrastive_loss import *
 #check for cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 hyperparameters = {
         'LR': 0.001,
-        'EPOCHES': 100,
-        'BATCH_SIZE': 32,
+        'EPOCHS': 5,
+        'BATCH_SIZE': 16,
         'IMG_CHANNEL': 3,
         'CLASSES': 35,
-        'AUGMENTATION_1': 'TEST1',
-        'AUGMENTATION_2': 'TEST2'
+        'AUGMENTATION_1': 'pitchshift',
+        'AUGMENTATION_2': 'pitchshift',
+        'MODEL_TITLE':'TEST1'
 }
 
 
-def model_pipeline(classifierName, datasetname, trainloader, testloader):
+def model_pipeline():
 
     
     with wandb.init(project="CLAR-train", config=hyperparameters, mode="disabled"):
@@ -31,10 +32,10 @@ def model_pipeline(classifierName, datasetname, trainloader, testloader):
         config = wandb.config
 
         #make the model, data and optimization problem
-        model, loss, optimizer, trainloader, testloader, valloader = create(config)
+        model, loss, optimizer, trainloader, testloader, valloader, Augmentation = create(config)
 
         #train the model
-        train(model, loss, optimizer, trainloader)
+        train(model, loss, optimizer, trainloader,config, Augmentation)
 
         #test the model
         #print("Accuracy test: ",test(model, testloader))
@@ -49,48 +50,42 @@ def create(config):
     trainloader,testloader, valloader  = getData(batch_size=config.BATCH_SIZE)
     
     # Create model
-    model = Net(img_channels=config.IMG_CHANNEL, num_classes = config.CLASSES)
+    model = Net(img_channels=config.IMG_CHANNEL, num_classes = config.CLASSES).to(device)
 
     # Define the constrastive loss
-    loss = contrastiveLoss()
+    loss = ContrastiveLoss(batch_size=config.BATCH_SIZE)
+
+    # Create Augmentation
+    Augmentation = Augment(config.AUGMENTATION_1, config.AUGMENTATION_2)
 
     # Define the optimizer, the paper use  
     optimizer = optim.Adam(model.parameters(), lr=config.LR)
 
-    return model, loss, optimizer, trainloader, testloader, valloader
+    return model, loss, optimizer, trainloader, testloader, valloader, Augmentation
 
 
-def train(model, loss, optimizer, trainloader,config, modeltitle = "test"):
+def train(model, closs, optimizer, trainloader,config, Augmentation):
 
     #telling wand to watch
     if wandb.run is not None:
         wandb.watch(model, optimizer, log="all", log_freq=1)
 
     losses = []
-
+    closs = nn.MSELoss()
     for epoch in range(config.EPOCHS):
-        progress_bar = tqdm.tqdm(total=len(trainloader), unit='step')
+        progress_bar = tqdm(total=len(trainloader), unit='step')
         
         for audio,labels in trainloader:
-
             optimizer.zero_grad()
-
-            # CALCUALTE AUGMENTATION 1
-            audio_1 = getTransform(config.AUGMENTATION_1, audio)
-            # CALCUALTE AUGMENTATION 2
-            audio_2 = getTransform(config.AUGMENTATION_2, audio)
-            
-            # CREATE THE FINAL BATCH
-            audio = createFinalbatch(audio_1, audio_2)
-            
-            # Create the augmented spectograms size [BATCH_SIZE, 3, 200, 200]
-            spectograms = createSpectogtrams(audio)
+            # Create augmentation 
+            spectograms,audios = createModelInput(Augmentation, audio)            
 
             # Model's ouput two emb vectors
-            audio_emb, spect_emb = model(spectograms,audio)
-            
+            audio_emb, spect_emb = model(spectograms,audios)
+            #audio_emb, spect_emb = torch.rand(size=[audio.shape[0], 128]).requires_grad_(), torch.rand(size=[audio.shape[0], 128]).requires_grad_()
+           #audio_emb , spect_emb = audio_emb.to(device) , spect_emb.to(device)
             # Calculate loss and backward
-            loss = loss(audio_emb, spect_emb)
+            loss = closs(audio_emb, spect_emb)
             loss.backward()
             optimizer.step()
 
@@ -110,20 +105,27 @@ def train(model, loss, optimizer, trainloader,config, modeltitle = "test"):
             wandb.log({"epoch":epoch, "loss":np.mean(losses)}, step=epoch)
         
         # save the model
-        torch.save(model.state_dict(), "models/model"+str(modeltitle)+".pt")
+        torch.save(model.state_dict(), f"models/model_{config.MODEL_TITLE}.pt")
     
-    return 0
+    return
+
+def createModelInput(Augmentation_, audio):
+
+    # CALCUALTE AUGMENTATION 1 AND AUGMENTATION 2
+    #audio_1= Augmentation_(audio)
+    audio_1 = fade_in_out(audio)
+    # CREATE THE FINAL BATCH
+    #audios = torch.cat([audio_1, audio_2], dim=0)
+
+    # Create the augmented spectograms size [BATCH_SIZE, 3, 200, 200]
+    #spectograms = createSpectograms(audio_1)
+    spectograms = torch.rand(size=[audio.shape[0],3, 128, 126])
+    # Insert them on GPU
+    audios = audio_1.to(device)
+    spectograms = spectograms.to(device)
+
+    return  spectograms, audios
 
 
 
-
-
-
-def createSpectogtrams(audio):
-    return torch.rand(size=[32,3,200,200])
-
-
-def createFinalbatch(bs1, bs2):
-    bs1 = torch.rand(size=[32,1,16000])
-    bs2 = torch.rand(size=[32,1,16000])
-    return torch.cat([bs1, bs2], dim = 0) # sould be [2*BATCH_SIZE, 1, 16000]
+model_pipeline()

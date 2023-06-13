@@ -3,7 +3,10 @@ from torchaudio.datasets import SPEECHCOMMANDS
 import os
 import torch
 import torchaudio
+import torchaudio.transforms as transforms
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class SubsetSC(SPEECHCOMMANDS):
     def __init__(self, subset: str = None):
@@ -51,52 +54,70 @@ def collate_fn(batch):
 
     # Gather in lists, and encode labels as indices
     for waveform, _, label, *_ in batch:
+        ###############################
+        # INSERT HERE AUGMENTATION   #
+
+
+        ###############################
         tensors += [waveform]
         targets += [label_to_index(label)]
 
     # Group the list of tensors into a batched tensor
     tensors = pad_sequence(tensors)
-    #
-    #   INSERT AUGMENTATION HERE!
-    #
 
     targets = torch.stack(targets)
     return tensors, targets
 
-def getData(batch_size = 32):
+def createSpectograms_(audio):
+
+    # Create magnitude and phase
+    stft_transform = torchaudio.transforms.Spectrogram(n_fft=256, hop_length=128)
+    stft = stft_transform(audio)
+    # Maginitude
+    maginitude = transforms.AmplitudeToDB()(stft)
+
+    # Melspectogram
+
+    mel_transform = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, hop_length=128, n_mels=128)
+    mel_spec = mel_transform(audio)
+
+    mel_spectogram = transforms.AmplitudeToDB()(mel_spec)
+    
+    # Phase
+    phase = stft.angle()
+    
+    specs = torch.cat((maginitude[:,:,:-1,:], phase[:,:,:-1,:], mel_spectogram), dim=0) # shape [2, 128, 126]
+
+    return specs
+
+
+def createSpectograms(audio):
+   
+   new_tensor = torch.Tensor(size=[audio.shape[0],3, 128, 126]) # TODO: hard coded!
+   
+   for i in range(audio.shape[0]):
+       new_tensor[i] = createSpectograms_(audio[i])
+       
+   return new_tensor
+
+def getData(batch_size = 32, num_workers = 0, pin_memory = False):
 
 
     train_set = SubsetSC("training")
     test_set = SubsetSC("testing")
     val_set = SubsetSC("validation")
     
-    if device == "cuda":
-        num_workers = 1
-        pin_memory = True
-    else:
-        num_workers = 0
-        pin_memory = False
-
 
     # creating Dataloaders
-    train_loader = torch.utils.data.DataLoader( train_set, batch_size=batch_size,shuffle=True,collate_fn=collate_fn, num_workers=num_workers,pin_memory=pin_memory)
-    val_loader = torch.utils.data.DataLoader(val_set,batch_size=batch_size,shuffle=True,collate_fn=collate_fn,num_workers=num_workers,pin_memory=pin_memory,)
-    test_loader = torch.utils.data.DataLoader(test_set,batch_size=batch_size,shuffle=False,drop_last=False,collate_fn=collate_fn,num_workers=num_workers,pin_memory=pin_memory,)
+    train_loader = torch.utils.data.DataLoader( train_set, batch_size=batch_size,shuffle=True,collate_fn=collate_fn, num_workers=num_workers)
+    val_loader = torch.utils.data.DataLoader(val_set,batch_size=batch_size,shuffle=True,collate_fn=collate_fn,num_workers=num_workers)
+    test_loader = torch.utils.data.DataLoader(test_set,batch_size=batch_size,shuffle=False,drop_last=False,collate_fn=collate_fn,num_workers=num_workers)
     
     return train_loader, test_loader, val_loader
 
 
 
-from augmentation import *
-if __name__ == "__main__":
 
-    #testing dataloaders!
-    train_loader,test_loader, val_loader  = getData()
-    audios, labels = next(iter(train_loader))
-    #spectogram = torchaudio.transforms.MelSpectrogram()
 
-    #a = spectogram(audios[0])
-    plt.plot(audios[0].T)
-    a = noise_injection(audios[0])
-    plt.plot(a.T.detach().numpy()) 
-    plt.show()
+trainloader,testloader, valloader  = getData(batch_size=32)
+signal, l = next(iter(trainloader))

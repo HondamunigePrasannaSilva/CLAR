@@ -2,8 +2,7 @@ import torch.nn as nn
 from resnet.resnet_1D import *
 from resnet.resnet_2D import *
 
-
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Net(nn.Module):
     r"""
@@ -15,8 +14,8 @@ class Net(nn.Module):
     def __init__(self,img_channels = 3, num_classes = 35):
         super(Net, self).__init__()
 
-        self.resnet_1D = CreateResNet1D(num_classes=num_classes)
-        self.resnet_2D = CreateResNet2D(img_channels=img_channels,num_classes=num_classes)
+        self.resnet_1D = CreateResNet1D(num_classes=num_classes).to(device)
+        self.resnet_2D = CreateResNet2D(img_channels=img_channels,num_classes=num_classes).to(device)
         self.projectionHead_audio = nn.Sequential(
                                                    nn.Linear(512, 256),
                                                    nn.ReLU(),
@@ -47,16 +46,16 @@ class Net(nn.Module):
         specs_emb = self.projectionHead_spectogram(spectograms)
 
         # should be 128 size 
-        return audio_emb, specs_emb
+        return audio_emb, specs_emb #[batch_size, feature_dim]
 
 
+"""model = Net().to(device)
 
+audio = torch.rand(size=[8,1,16000]).to(device)
+spectogram = torch.rand(size=[8,3,129, 126]).to(device)
 
+for i in range(1000):
+    audio_emb, spec_emb = model(spectogram, audio)
 
-model = Net()
-
-spect = torch.rand(size=[32,3,100,100])
-audio = torch.rand(size=[32,1,16000])
-
-output = model(spect, audio)
-
+print(1)
+"""
