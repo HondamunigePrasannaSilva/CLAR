@@ -30,10 +30,10 @@ import torchaudio.transforms as transforms
 import matplotlib.pyplot as plt
 import random
 import torch
-from torchmetrics import SignalNoiseRatio
+#from torchmetrics import SignalNoiseRatio
 
-def pitchshift(audio, SAMPLE_RATE=16000, shift = 5):
 
+def pitchshift(audio, SAMPLE_RATE=16000, shift = 2):
     """
     Pitch Shift (PS): randomly raises or lowers the pitch of the audio signal.\n
     Based on experimental observation,we found the range of pitch shifts that main-tained\n
@@ -62,37 +62,25 @@ def fade_in_out(audio):
     """
     assert audio != None, "audio should not be None"
     _fade_shape = ['linear', 'logarithmic', 'exponential']
-    _fade_size = [i for i in range(1, int(audio.shape[1]/2))]
+    _fade_size = [i for i in range(1, int(audio.shape[2]/2))]
 
     transform = transforms.Fade(fade_in_len=random.choice(_fade_size), fade_out_len=random.choice(_fade_size), fade_shape=random.choice(_fade_shape))
     waveform_fade_in_out = transform(audio)
     return waveform_fade_in_out
 
-
-def _noise_injection(audio):
+def add_white_noise_(signal, noise_level):
     """
     Noise Injection: mix the audio signal with random white, brown and pink noise.\n
     In our implementation, the intensity of the noise signal was randomly selected based\n
     on the strength of signal-to-noise ratio. Applied white, brown, or pink depending\n
     on an additional random parameter sampled from uniform distribution (Mixed Noise).
     """
-    assert audio != None, "audio should not be None"
-
-    white_noise, _ = torchaudio.load("SpeechCommands/speech_commands_v0.02/_background_noise_/white_noise.wav")
-    pink_noise, _ = torchaudio.load("SpeechCommands/speech_commands_v0.02/_background_noise_/pink_noise.wav")
-
-    noise = [white_noise[0][:16000][None,:], pink_noise[0][:16000][None,:] ]
-
-    noise = random.choice(noise)  #select random noise 
-    transform = transforms.AddNoise()
-    snr = SignalNoiseRatio()
-    
-    waveform_with_noise = transform(audio, noise)
-    return waveform_with_noise
+    noise = torch.randn_like(signal)*torch.std(signal) * noise_level
+    noisy_signal = signal + noise
+    return noisy_signal
 
 
-
-def _time_masking(audio):
+def timemasking(signal_, batch_size, sample_rate=16000):
     """
     Time masking:given an audio signal, in this transformation we randomly select a small\n
     segment of the full signal and set the signal values in that segment to normal noise or a\n 
@@ -100,53 +88,17 @@ def _time_masking(audio):
     masked segment but also we randomly selected the size of the segment. The size of the \n
     masked segment was set to maximally be 1/8 of the input signal.
     """
-    assert audio != None, "audio should not be None"
-
-    masked_loc = [i for i in range(audio.shape[1])]
-    masked_len = [i for i in range(1, int(audio.shape[1]/8))]
-
-    return 
-
-
-
-# add the augmentation function here!
-augmentation = {
-     'pitchshift':lambda audio:pitchshift(audio),
-      'fade_in_out':lambda audio:fade_in_out(audio),
-     'noise_injection':lambda audio:_noise_injection(audio),
-     'time_masking':lambda audio:_time_masking(audio)
-}
-
-
-class Augment:
-
-    """
-    Module that apply two augmentation:
-    """
-
-    def __init__(self, augmentation_1, augmentation_2):
-
-        assert augmentation_1 in augmentation, f"Augmentation: {augmentation_1} not found in the list"
-        assert augmentation_2 in augmentation, f"Augmentation: {augmentation_2} not found in the list"
-
-        self.aug_1 = augmentation[augmentation_1]
-        self.aug_2 = augmentation[augmentation_2]
-
-
-    def __call__(self,audio):
-
-        audio_1 = self.aug_1(audio)
-        audio_2 = self.aug_2(audio_1)
-
-        return  audio_2
-
-
-import numpy as np
-
-def add_white_noise(signal, noise_factor):
-    noise = np.random.normal(0, signal.std(), signal.size)
-    augmented_signal = signal + noise*noise_factor
-    return augmented_signal
+    max_mask = int(sample_rate/8)*torch.ones(size=[batch_size])
+    pos_iniziale = torch.randint(low=0, high=sample_rate, size=[batch_size])
+    min_mask = sample_rate-pos_iniziale
+    min_elements = torch.min(min_mask,max_mask)
+    pos_finale = pos_iniziale+min_elements.to(torch.int)
+    indices = torch.arange(sample_rate).unsqueeze(0).expand(batch_size, -1)
+    range_mask = (indices >= pos_iniziale.unsqueeze(1)) & (indices <= pos_finale.unsqueeze(1))
+    range_mask = range_mask[:,None,:]
+    signal_[range_mask] = 0
+        
+    return signal_
 
 
 

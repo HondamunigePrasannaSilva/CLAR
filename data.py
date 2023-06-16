@@ -66,6 +66,9 @@ def collate_fn(batch):
     tensors = pad_sequence(tensors)
 
     targets = torch.stack(targets)
+
+
+
     return tensors, targets
 
 def createSpectograms_(audio):
@@ -75,7 +78,6 @@ def createSpectograms_(audio):
     stft = stft_transform(audio)
     # Maginitude
     maginitude = transforms.AmplitudeToDB()(stft)
-
     # Melspectogram
 
     mel_transform = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, hop_length=128, n_mels=128)
@@ -86,38 +88,27 @@ def createSpectograms_(audio):
     # Phase
     phase = stft.angle()
     
-    specs = torch.cat((maginitude[:,:,:-1,:], phase[:,:,:-1,:], mel_spectogram), dim=0) # shape [2, 128, 126]
+    new_tensor = torch.Tensor(size=[audio.shape[0],3, 128, 126]) 
+    for i in range(audio.shape[0]):
+        new_tensor[i] = torch.cat((maginitude[i,:,:-1,:], phase[i,:,:-1,:], mel_spectogram[i]), dim=0)
+    
 
-    return specs
+    return new_tensor
 
 
-def createSpectograms(audio):
-   
-   new_tensor = torch.Tensor(size=[audio.shape[0],3, 128, 126]) # TODO: hard coded!
-   
-   for i in range(audio.shape[0]):
-       new_tensor[i] = createSpectograms_(audio[i])
-       
-   return new_tensor
 
 def getData(batch_size = 32, num_workers = 0, pin_memory = False):
-
 
     train_set = SubsetSC("training")
     test_set = SubsetSC("testing")
     val_set = SubsetSC("validation")
     
-
     # creating Dataloaders
-    train_loader = torch.utils.data.DataLoader( train_set, batch_size=batch_size,shuffle=True,collate_fn=collate_fn, num_workers=num_workers)
-    val_loader = torch.utils.data.DataLoader(val_set,batch_size=batch_size,shuffle=True,collate_fn=collate_fn,num_workers=num_workers)
-    test_loader = torch.utils.data.DataLoader(test_set,batch_size=batch_size,shuffle=False,drop_last=False,collate_fn=collate_fn,num_workers=num_workers)
+    train_loader = torch.utils.data.DataLoader( train_set, batch_size=batch_size,shuffle=True,drop_last=True, collate_fn=collate_fn, num_workers=num_workers, pin_memory = pin_memory)
+    val_loader = torch.utils.data.DataLoader(val_set,batch_size=batch_size,shuffle=True,collate_fn=collate_fn,num_workers=0)
+    test_loader = torch.utils.data.DataLoader(test_set,batch_size=batch_size,shuffle=False,drop_last=False,collate_fn=collate_fn,num_workers=0)
     
     return train_loader, test_loader, val_loader
 
 
 
-
-
-trainloader,testloader, valloader  = getData(batch_size=32)
-signal, l = next(iter(trainloader))
