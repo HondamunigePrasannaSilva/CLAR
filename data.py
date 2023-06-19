@@ -71,26 +71,26 @@ def collate_fn(batch):
 
     return tensors, targets
 
-def createSpectograms_(audio):
+import Spectrograms as sp
 
+def createSpectograms(audio, stft, mel_transform):
+    
     # Create magnitude and phase
-    stft_transform = torchaudio.transforms.Spectrogram(n_fft=256, hop_length=128)
-    stft = stft_transform(audio)
-    # Maginitude
-    maginitude = transforms.AmplitudeToDB()(stft)
-    # Melspectogram
+    mag = stft(audio, 'Magnitude')
+    db_mag = torchaudio.functional.amplitude_to_DB(mag.abs(), 20, 1e-05, 1)[:,None,:,:] #[Batch_size,1, 128, 126]
+    
+    # Phase    
+    phase = stft(audio, 'Phase')[:,None,:,:]
 
-    mel_transform = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, hop_length=128, n_mels=128)
-    mel_spec = mel_transform(audio)
-
+    #Mel spectograms
+    mel_spec = mel_transform(audio)                   
     mel_spectogram = transforms.AmplitudeToDB()(mel_spec)
     
-    # Phase
-    phase = stft.angle()
+    # Stack them Magnitude+Phase+Melspectogram
     
-    new_tensor = torch.Tensor(size=[audio.shape[0],3, 128, 126]) 
+    new_tensor = torch.Tensor(size=[audio.shape[0],3, 128, 126])
     for i in range(audio.shape[0]):
-        new_tensor[i] = torch.cat((maginitude[i,:,:-1,:], phase[i,:,:-1,:], mel_spectogram[i]), dim=0)
+        new_tensor[i] = torch.cat((db_mag[i], phase[i], mel_spectogram[i]), dim=0)
     
 
     return new_tensor

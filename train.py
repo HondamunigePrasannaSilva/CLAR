@@ -9,6 +9,8 @@ from net import *
 from augmentation import *
 from contrastive_loss import *
 from EvaluationHead import *
+import Spectrograms as sp
+
 #check for cuda
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -19,29 +21,29 @@ hyperparameters = {
         'B1':0.9,
         'B2':0.999,
         'EPOCHS': 201,
-        'BATCH_SIZE': 128,
+        'BATCH_SIZE': 8,
         'IMG_CHANNEL': 3,
         'CLASSES': 35,
-        'EVAL_BATCH':128,
-        'EVAL_EPOCHS':10,
-        'N_LABELS': 20,
+        'EVAL_BATCH':8,
+        'EVAL_EPOCHS':1,
+        'N_LABELS': 1,
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'fade_tm'
+        'MODEL_TITLE':'fade_tm_1_EV1'
 }
 
 
 def model_pipeline():
 
     
-    with wandb.init(project="CLAR", config=hyperparameters):
+    with wandb.init(project="CLAR", config=hyperparameters, mode="disabled"):
         #access all HPs through wandb.config
         config = wandb.config
 
         #make the model, data and optimization problem
-        model, loss,ce_loss, optimizer, trainloader, testloader, valloader = create(config)
+        model, loss,ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform = create(config)
 
         #train the model
-        train(model, loss,ce_loss, optimizer, trainloader,config)
+        train(model, loss,ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform)
 
         #test the model
         #print("Accuracy test: ",test(model, testloader))
@@ -59,13 +61,17 @@ def create(config):
     loss = ContrastiveLoss(batch_size=config.BATCH_SIZE)
     ce_loss = nn.CrossEntropyLoss(ignore_index=-1)
 
+    #Define Melspectogram and STFT (Magnitude and Phase) 
+    mel_transform = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=2048, hop_length=128, n_mels=128,f_min=40, f_max=8000, mel_scale="slaney").to(device)
+    stft_trasform = sp.STFT(n_fft=2048,hop_length=128, sr=16000,freq_bins=128,freq_scale='log',fmin=40,fmax=8000,verbose=False)
+
     # Define the optimizer, the paper use  
     optimizer = optim.Adam(model.parameters(), lr=config.LR, betas=(config.B1, config.B2), weight_decay=config.WEIGHT_DECAY)
 
-    return model, loss,ce_loss, optimizer, trainloader, testloader, valloader
+    return model, loss,ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform
 
 
-def train(model, closs,ce_loss, optimizer, trainloader,config):
+def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform):
 
     #telling wand to watch
     if wandb.run is not None:
@@ -80,14 +86,16 @@ def train(model, closs,ce_loss, optimizer, trainloader,config):
         for audio,lab in trainloader:
             optimizer.zero_grad()
             
+            # Semi supervised learning, select 1%, 10%, 20% or 100% of labels
             n_label_ = int(lab.shape[0] * (1-config.N_LABELS/100))
             select_lab_to_CE_loss = random.sample(range(lab.shape[0]), n_label_)
             lab[select_lab_to_CE_loss] = -1
 
             labels = torch.cat([lab, lab], dim=0).to(device)
-
+            
+            audio = audio.to(device)
             # Create augmentation and spectograms!
-            spectograms,audios = createModelInput(audio)            
+            spectograms,audios = createModelInput(audio, mel_transform, stft_trasform, augmentation=True)            
 
             # Model's ouput two emb vectors
             with torch.cuda.amp.autocast():
@@ -107,8 +115,6 @@ def train(model, closs,ce_loss, optimizer, trainloader,config):
 
             # save loss to statistics
             losses.append(loss.item())
-     
-           
             
         # end for batch 
         
@@ -127,21 +133,22 @@ def train(model, closs,ce_loss, optimizer, trainloader,config):
     
     return
 
-def createModelInput(audio, augmentation=True):
+def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
 
     # CALCUALTE AUGMENTATION 1 AND AUGMENTATION 2
-    if(augmentation == True):
+    if augmentation == True:
         audio = fade_in_out(audio)
         audio = timemasking(audio,audio.shape[0])
     
     # Create the augmented spectograms size [BATCH_SIZE, 3, 200, 200]
-    spectograms = createSpectograms_(audio)
+    spectograms = createSpectograms(audio, stft_trasform, mel_transform)
 
     # Insert them on GPU
-    audios = audio.to(device)
+   # audios = audio.to(device)
     spectograms = spectograms.to(device)
 
-    return  spectograms, audios
+    return  spectograms, audio
+
 
 
 def evaluationphase(model, config):
@@ -163,7 +170,7 @@ def evaluationphase(model, config):
 
         criterion = torch.nn.CrossEntropyLoss()
 
-        scaler = torch.cuda.amp.GradScaler()
+        #scaler = torch.cuda.amp.GradScaler()
     
         
         
@@ -180,24 +187,23 @@ def evaluationphase(model, config):
                 labels_cat = torch.cat([labels, labels], dim = 0).to(device)
 
                 # Model's ouput two emb vectors
-                with torch.cuda.amp.autocast():
-                    # Use frozen encoder
+            
+                # Use frozen encoder
+                
+                with torch.no_grad():
                     _, _, frozen_audio, frozen_spects, _ = model(spectograms, audios)
-                    inputs = torch.cat([frozen_audio, frozen_spects], dim = 0) 
-                    outputs = modelEvaluation(inputs)
-                    loss = criterion(outputs, labels_cat)
-
+                
+                inputs = torch.cat([frozen_audio, frozen_spects], dim = 0) 
+                outputs = modelEvaluation(inputs)
+                loss = criterion(outputs, labels_cat)
 
                 # Calculate loss and backward
                 
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+                loss.backward()
+                optimizer.step()
+                
                 losses.append(loss.item())
                
-            
-            
-
                 #progress bar stuff
                 progress_bar.set_description(f"Epoch {epoch+1}/{config.EVAL_EPOCHS}")
                 progress_bar.set_postfix(loss=np.mean(losses))  # Update the loss value
@@ -220,17 +226,15 @@ def evaluationphase(model, config):
                 spectograms,audios = createModelInput(audio, augmentation=False)
                 labels_cat = torch.cat([labels, labels], dim = 0).to(device)
 
-                # Model's ouput two emb vectors
-                with torch.cuda.amp.autocast():
-                    # Use frozen encoder
-                    _, _, frozen_audio, frozen_spects, _ = model(spectograms, audios)
-                    inputs = torch.cat([frozen_audio, frozen_spects], dim = 0) 
-                    outputs = model_eval(inputs)
-                    _, predicated = torch.max(outputs.data, 1)
-                    total += labels_cat.size(0)
-                    
-                    correct += (predicated == labels_cat).sum().item()
-                    # finire di calcolare il max!                    
+                # Use frozen encoder
+                _, _, frozen_audio, frozen_spects, _ = model(spectograms, audios)
+                inputs = torch.cat([frozen_audio, frozen_spects], dim = 0) 
+                outputs = model_eval(inputs)
+                _, predicated = torch.max(outputs.data, 1)
+                total += labels_cat.size(0)
+                
+                correct += (predicated == labels_cat).sum().item()
+                # finire di calcolare il max!                    
             
                 #progress bar stuff
                 progress_bar.set_description(f"Epoch {i+1}/{len(dataloader)}")
@@ -251,6 +255,7 @@ def evaluationphase(model, config):
     
 
     return accuracy_test, validation_accuracy
+
 
 
 model_pipeline()
