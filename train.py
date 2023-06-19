@@ -21,10 +21,10 @@ hyperparameters = {
         'B1':0.9,
         'B2':0.999,
         'EPOCHS': 201,
-        'BATCH_SIZE': 8,
+        'BATCH_SIZE': 256,
         'IMG_CHANNEL': 3,
         'CLASSES': 35,
-        'EVAL_BATCH':8,
+        'EVAL_BATCH':64,
         'EVAL_EPOCHS':1,
         'N_LABELS': 1,
         'DATASET': 'SpeechCommand',
@@ -35,7 +35,7 @@ hyperparameters = {
 def model_pipeline():
 
     
-    with wandb.init(project="CLAR", config=hyperparameters, mode="disabled"):
+    with wandb.init(project="CLAR", config=hyperparameters):
         #access all HPs through wandb.config
         config = wandb.config
 
@@ -128,7 +128,7 @@ def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, st
         if epoch%10==0: 
             # EVALUATION HEAD  
             torch.save(model.state_dict(), f"models/model_{config.MODEL_TITLE}.pt")
-            accuracy_test, accuracy_validation = evaluationphase(model, config)
+            accuracy_test, accuracy_validation = evaluationphase(model, config, mel_transform, stft_trasform)
             wandb.log({"accuracy_test":accuracy_test, "accuracy_validation":accuracy_validation})
     
     return
@@ -151,7 +151,7 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
 
 
 
-def evaluationphase(model, config):
+def evaluationphase(model, config, mel_transform, stft_trasform):
     
     model.eval()
     # Get dataloaders
@@ -180,9 +180,9 @@ def evaluationphase(model, config):
             for audio,labels in trainloader:
                 
                 optimizer.zero_grad()
-
+                audio = audio.to(device)
                 # Create augmentation and spectograms!
-                spectograms,audios = createModelInput(audio)
+                spectograms,audios = createModelInput(audio, mel_transform, stft_trasform, augmentation=False)
 
                 labels_cat = torch.cat([labels, labels], dim = 0).to(device)
 
@@ -222,8 +222,9 @@ def evaluationphase(model, config):
         correct = 0
         with torch.no_grad():
             for i, (audio,labels) in enumerate(dataloader):
-                
-                spectograms,audios = createModelInput(audio, augmentation=False)
+
+                audio = audio.to(device)
+                spectograms,audios = createModelInput(audio, mel_transform, stft_trasform,  augmentation=False)
                 labels_cat = torch.cat([labels, labels], dim = 0).to(device)
 
                 # Use frozen encoder

@@ -71,7 +71,6 @@ def collate_fn(batch):
 
     return tensors, targets
 
-import Spectrograms as sp
 
 def createSpectograms(audio, stft, mel_transform):
     
@@ -92,9 +91,7 @@ def createSpectograms(audio, stft, mel_transform):
     for i in range(audio.shape[0]):
         new_tensor[i] = torch.cat((db_mag[i], phase[i], mel_spectogram[i]), dim=0)
     
-
     return new_tensor
-
 
 
 def getData(batch_size = 32, num_workers = 0, pin_memory = False):
