@@ -19,15 +19,19 @@ class Net(nn.Module):
         ####################### ENCODER ###################################
         self.resnet_1D = CreateResNet1D(num_classes=num_classes).to(device)
         self.resnet_2D = CreateResNet2D(img_channels=img_channels,num_classes=num_classes).to(device)
-        ####################### PROJECTION HEAD############################
+        
+        ####################### PROJECTION HEAD ###########################
         self.projectionHead = nn.Sequential(
-                        nn.Linear(512, 256),
-                        nn.ReLU(),
-                        nn.Linear(256, 128) # Output goes to the contrastive loss!         
-        )
+                                    nn.Linear(256, 256),
+                                    nn.ReLU(),
+                                    nn.Linear(256, 128) # Output goes to the contrastive loss!         
+                                    )
         # Last layer of the projection head used to semi-supervised Categorial cross Entropy
-        self.linear_3 = nn.Linear(128, num_classes) 
-        self.relu = nn.ReLU()
+        self.output = nn.Sequential(
+                                    nn.ReLU(),
+                                    nn.Linear(128, num_classes) # Output goes to the contrastive loss!         
+                                    )
+        
         ####################################################################
         
     def forward(self, input_spectogram, input_audio):
@@ -36,21 +40,19 @@ class Net(nn.Module):
             Output:
                 - audio_emb, specs_emb used for contrastive loss
                 - audio, spectograms used for Evaluation layer
-                - output used for Evaluation layer used for semi supervised
+                - output used for semi supervised - Categorical cross entropy
         """
+        
         audio = self.resnet_1D(input_audio)
         audio = audio.squeeze()
-        audio_emb = self.projectionHead(audio)
-
         spectograms = self.resnet_2D(input_spectogram)
         spectograms = spectograms.squeeze()
+        
+        audio_emb = self.projectionHead(audio)
         specs_emb = self.projectionHead(spectograms)
         
-        audio_emb = self.relu(audio_emb)
-        specs_emb = self.relu(specs_emb)
-        
-        output = self.linear_3(torch.cat([audio_emb, specs_emb], dim=0))
-        
+        output = self.output(torch.cat([audio_emb, specs_emb], dim=0))
+                
         # should be 128 size 
-        return audio_emb, specs_emb, audio, spectograms, output #[batch_size, feature_dim]
+        return audio_emb, specs_emb, audio, spectograms, output 
 

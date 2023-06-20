@@ -12,7 +12,7 @@ from EvaluationHead import *
 import Spectrograms as sp
 
 #check for cuda
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 
 hyperparameters = {
@@ -20,15 +20,15 @@ hyperparameters = {
         'WEIGHT_DECAY': 1e-6,
         'B1':0.9,
         'B2':0.999,
-        'EPOCHS': 201,
+        'EPOCHS': 101,
         'BATCH_SIZE': 256,
         'IMG_CHANNEL': 3,
         'CLASSES': 35,
         'EVAL_BATCH':64,
-        'EVAL_EPOCHS':1,
-        'N_LABELS': 20,
+        'EVAL_EPOCHS':5,
+        'N_LABELS': 100,
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'fade_tm_20_EV1'
+        'MODEL_TITLE':'fade_tm_unsupervised'
 }
 
 
@@ -40,10 +40,10 @@ def model_pipeline():
         config = wandb.config
 
         #make the model, data and optimization problem
-        model, loss,ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform = create(config)
+        model, loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform = create(config)
 
         #train the model
-        train(model, loss,ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform)
+        train(model, loss, optimizer, trainloader,config, mel_transform, stft_trasform)
 
         #test the model
         #print("Accuracy test: ",test(model, testloader))
@@ -55,23 +55,22 @@ def create(config):
     trainloader,testloader, valloader  = getData(batch_size=config.BATCH_SIZE, num_workers=8, pin_memory=False, percentage = config.N_LABELS)
     
     # Create model
-    model = Net(img_channels=config.IMG_CHANNEL, num_classes = config.CLASSES).to(device)
+    model = Net(img_channels=config.IMG_CHANNEL, num_classes = config.CLASSES, unsupervised=True).to(device)
 
     # Define the constrastive loss
     loss = ContrastiveLoss(batch_size=config.BATCH_SIZE)
-    ce_loss = nn.CrossEntropyLoss(ignore_index=35)
 
     #Define Melspectogram and STFT (Magnitude and Phase) 
     mel_transform = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=2048, hop_length=128, n_mels=128,f_min=40, f_max=8000, mel_scale="slaney").to(device)
-    stft_trasform = sp.STFT(n_fft=2048,hop_length=128, sr=16000,freq_bins=128,freq_scale='log',fmin=40,fmax=8000,verbose=False)
+    stft_trasform = sp.STFT(n_fft=2048,hop_length=128, sr=16000,freq_bins=128,freq_scale='log',fmin=40,fmax=8000,verbose=False, device=device)
 
     # Define the optimizer, the paper use  
     optimizer = optim.Adam(model.parameters(), lr=config.LR, betas=(config.B1, config.B2), weight_decay=config.WEIGHT_DECAY)
 
-    return model, loss,ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform
+    return model, loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform
 
 
-def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform):
+def train(model, closs, optimizer, trainloader,config, mel_transform, stft_trasform):
 
     #telling wand to watch
     if wandb.run is not None:
@@ -83,30 +82,24 @@ def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, st
         progress_bar = tqdm(total=len(trainloader), unit='step')
         losses = []
         clos_ = []
-        celos = []
         for audio,lab in trainloader:
             optimizer.zero_grad()
             
-            labels = torch.cat([lab, lab], dim=0).to(device)
-            
             audio = audio.to(device)
+
             # Create augmentation and spectograms!
             spectograms,audios = createModelInput(audio, mel_transform, stft_trasform, augmentation=True)            
 
             # Model's ouput two emb vectors
             with torch.cuda.amp.autocast():
-                audio_emb, spect_emb, _, _, output = model(spectograms,audios)
-                contrastive_loss = closs(audio_emb, spect_emb)
-                categorical_cross_entropy =  ce_loss(output, labels)
-                
-                loss = contrastive_loss+categorical_cross_entropy
+                audio_emb, spect_emb, _, _ = model(spectograms,audios)
+                contrastive_loss = closs(audio_emb, spect_emb)                
+                loss = contrastive_loss
                 
                 # for logg purpose
                 clos_.append(contrastive_loss.item())
-                celos.append(categorical_cross_entropy.item())
                 
             # Calculate loss and backward
-            
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -124,7 +117,7 @@ def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, st
 
         # Log on wandb at each epoch
         if wandb.run is not None:
-            wandb.log({"epoch":epoch, "loss":np.mean(losses),"contrastiveL":np.mean(clos_), "categorialL":np.mean(celos) })
+            wandb.log({"epoch":epoch, "loss":np.mean(losses),"contrastiveL":np.mean(clos_) })
         
             
         if epoch%10==0: 
@@ -144,10 +137,8 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
     
     # Create the augmented spectograms size [BATCH_SIZE, 3, 200, 200]
     spectograms = createSpectograms(audio, stft_trasform, mel_transform)
-
-    # Insert them on GPU
-   # audios = audio.to(device)
     spectograms = spectograms.to(device)
+
 
     return  spectograms, audio
 
@@ -185,12 +176,10 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
 
                 labels_cat = torch.cat([labels, labels], dim = 0).to(device)
 
-                # Model's ouput two emb vectors
             
-                # Use frozen encoder
-                
+                # Use frozen encoder                
                 with torch.no_grad():
-                    _, _, frozen_audio, frozen_spects, _ = model(spectograms, audios)
+                    _, _, frozen_audio, frozen_spects = model(spectograms, audios)
                 
                 inputs = torch.cat([frozen_audio, frozen_spects], dim = 0) 
                 outputs = modelEvaluation(inputs)
@@ -227,7 +216,7 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
                 labels_cat = torch.cat([labels, labels], dim = 0).to(device)
 
                 # Use frozen encoder
-                _, _, frozen_audio, frozen_spects, _ = model(spectograms, audios)
+                _, _, frozen_audio, frozen_spects = model(spectograms, audios)
                 inputs = torch.cat([frozen_audio, frozen_spects], dim = 0) 
                 outputs = model_eval(inputs)
                 _, predicated = torch.max(outputs.data, 1)
@@ -257,5 +246,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
     return accuracy_test, validation_accuracy
 
 
+if __name__ == "__main__":
 
-model_pipeline()
+    model_pipeline()

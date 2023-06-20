@@ -12,17 +12,17 @@ class EvaluationHead(nn.Module):
     def __init__(self, num_classes = 35):
         super(EvaluationHead, self).__init__()
 
-        self.linear_1 = nn.Linear(512,256)
-        self.linear_2 = nn.Linear(256,128)
-        self.linear_3 = nn.Linear(128,num_classes)
+        self.linear_1 = nn.Linear(256,num_classes)
+        #self.linear_2 = nn.Linear(256,128)
+        #self.linear_3 = nn.Linear(128,num_classes)
 
-        self.relu = nn.ReLU()
+        #self.relu = nn.ReLU()
                 
     def forward(self,x):
         
         x = self.linear_1(x)
-        x = self.relu(x)
-        x = self.linear_2(x)
-        x = self.relu(x)
-        x = self.linear_3(x)
+        #x = self.relu(x)
+        #x = self.linear_2(x)
+        #x = self.relu(x)
+        #x = self.linear_3(x)
         return x # [batch_size, num_classes]

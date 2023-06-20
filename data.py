@@ -1,21 +1,36 @@
 import matplotlib.pyplot as plt
-from torchaudio.datasets import SPEECHCOMMANDS
+from speechcommands import SPEECHCOMMANDS
+from typing import Tuple, Optional, Union
+from torch import Tensor
 import os
 import torch
 import torchaudio
 import torchaudio.transforms as transforms
+import math
+import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class SubsetSC(SPEECHCOMMANDS):
-    def __init__(self, subset: str = None):
+    def __init__(self, subset: str = None, percentage = 1, batch_size = 256):
         super().__init__("./", download=True)
 
         def load_list(filename):
             filepath = os.path.join(self._path, filename)
             with open(filepath) as fileobj:
                 return [os.path.normpath(os.path.join(self._path, line.strip())) for line in fileobj]
+
+        def masklabel( percentage = 100, batch_size=256, trainsize = 0):
+            if percentage == 100:
+                return None
+            random.seed(0)
+            interval = math.floor(trainsize/batch_size)
+            index_ = [random.sample(range(i, i+interval), int(interval*(1-percentage/100)) ) for i in range(0, trainsize, interval) ]
+            flattened_list = [item for sublist in index_ for item in sublist]
+            return flattened_list
+
+        self.subset = subset
 
         if subset == "validation":
             self._walker = load_list("validation_list.txt")
@@ -25,11 +40,17 @@ class SubsetSC(SPEECHCOMMANDS):
             excludes = load_list("validation_list.txt") + load_list("testing_list.txt")
             excludes = set(excludes)
             self._walker = [w for w in self._walker if w not in excludes]
+            
+            self.index_list = masklabel(percentage=percentage, batch_size=batch_size, trainsize=len(self._walker))
 
+
+
+
+        
 #labels of the dataset, (35)
 labels =  ['backward', 'bed', 'bird', 'cat', 'dog', 'down', 'eight', 'five', 'follow','forward','four',
            'go', 'happy', 'house', 'learn', 'left', 'marvin', 'nine', 'no', 'off', 'on','one', 'right',
-           'seven', 'sheila', 'six', 'stop', 'three','tree', 'two', 'up', 'visual', 'wow', 'yes', 'zero']
+           'seven', 'sheila', 'six', 'stop', 'three','tree', 'two', 'up', 'visual', 'wow', 'yes', 'zero', 'None']
 
 def label_to_index(word):
     # Return the position of the word in labels
@@ -54,11 +75,6 @@ def collate_fn(batch):
 
     # Gather in lists, and encode labels as indices
     for waveform, _, label, *_ in batch:
-        ###############################
-        # INSERT HERE AUGMENTATION   #
-
-
-        ###############################
         tensors += [waveform]
         targets += [label_to_index(label)]
 
@@ -94,11 +110,11 @@ def createSpectograms(audio, stft, mel_transform):
     return new_tensor
 
 
-def getData(batch_size = 32, num_workers = 0, pin_memory = False):
+def getData(batch_size = 32, num_workers = 0, pin_memory = False, percentage = 1):
 
-    train_set = SubsetSC("training")
-    test_set = SubsetSC("testing")
-    val_set = SubsetSC("validation")
+    train_set = SubsetSC("training", percentage=percentage)
+    test_set = SubsetSC("testing", percentage=percentage)
+    val_set = SubsetSC("validation", percentage=percentage)
     
     # creating Dataloaders
     train_loader = torch.utils.data.DataLoader( train_set, batch_size=batch_size,shuffle=True,drop_last=True, collate_fn=collate_fn, num_workers=num_workers, pin_memory = pin_memory)

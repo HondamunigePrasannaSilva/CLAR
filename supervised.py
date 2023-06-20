@@ -20,22 +20,22 @@ hyperparameters = {
         'WEIGHT_DECAY': 1e-6,
         'B1':0.9,
         'B2':0.999,
-        'EPOCHS': 201,
+        'EPOCHS': 101,
         'BATCH_SIZE': 256,
         'IMG_CHANNEL': 3,
         'CLASSES': 35,
         'EVAL_BATCH':64,
-        'EVAL_EPOCHS':1,
-        'N_LABELS': 20,
+        'EVAL_EPOCHS':5,
+        'N_LABELS': 1,
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'fade_tm_20_EV1'
+        'MODEL_TITLE':'fade_tm_10'
 }
 
 
-def model_pipeline():
+def model_pipeline(hyper):
 
     
-    with wandb.init(project="CLAR", config=hyperparameters):
+    with wandb.init(project="CLAR", config=hyper):
         #access all HPs through wandb.config
         config = wandb.config
 
@@ -96,13 +96,10 @@ def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, st
             # Model's ouput two emb vectors
             with torch.cuda.amp.autocast():
                 audio_emb, spect_emb, _, _, output = model(spectograms,audios)
-                contrastive_loss = closs(audio_emb, spect_emb)
+                
                 categorical_cross_entropy =  ce_loss(output, labels)
-                
-                loss = contrastive_loss+categorical_cross_entropy
-                
+                loss = categorical_cross_entropy
                 # for logg purpose
-                clos_.append(contrastive_loss.item())
                 celos.append(categorical_cross_entropy.item())
                 
             # Calculate loss and backward
@@ -121,10 +118,9 @@ def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, st
             
         # end for batch 
         
-
         # Log on wandb at each epoch
         if wandb.run is not None:
-            wandb.log({"epoch":epoch, "loss":np.mean(losses),"contrastiveL":np.mean(clos_), "categorialL":np.mean(celos) })
+            wandb.log({"epoch":epoch, "loss":np.mean(losses), "categorialL":np.mean(celos) })
         
             
         if epoch%10==0: 
@@ -256,6 +252,19 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
 
     return accuracy_test, validation_accuracy
 
+if __name__ == "__main__":
+    
+    model_pipeline(hyperparameters)
 
-
-model_pipeline()
+    hyperparameters['N_LABELS'] = 10
+    hyperparameters['MODEL_TITLE'] = 'fade_tm_10_supervised'
+    model_pipeline(hyperparameters)
+    
+    hyperparameters['N_LABELS'] = 20
+    hyperparameters['MODEL_TITLE'] = 'fade_tm_20_supervised'
+    model_pipeline(hyperparameters)
+    
+    hyperparameters['N_LABELS'] = 100
+    hyperparameters['MODEL_TITLE'] = 'fade_tm_100_supervised'
+    model_pipeline(hyperparameters)
+    

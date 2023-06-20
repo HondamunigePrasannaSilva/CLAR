@@ -55,7 +55,7 @@ class ResNet1D(nn.Module):
         self.layer1 = self._make_layer(block, layers[0], 64, stride=1)
         self.layer2 = self._make_layer(block, layers[1], 128, stride=2)
         self.layer3 = self._make_layer(block, layers[2], 256, stride=2)
-        self.layer4 = self._make_layer(block, layers[3], 512, stride=2)
+        #self.layer4 = self._make_layer(block, layers[3], 512, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool1d(output_size=1)
         # tagliare qui per prendere 
@@ -71,7 +71,7 @@ class ResNet1D(nn.Module):
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
-        x = self.layer4(x)
+        #x = self.layer4(x)
 
         x = self.avgpool(x)
 
