@@ -21,10 +21,10 @@ hyperparameters = {
         'B1':0.9,
         'B2':0.999,
         'EPOCHS': 201,
-        'BATCH_SIZE': 256,
+        'BATCH_SIZE': 8,
         'IMG_CHANNEL': 3,
         'CLASSES': 35,
-        'EVAL_BATCH':64,
+        'EVAL_BATCH':8,
         'EVAL_EPOCHS':1,
         'N_LABELS': 1,
         'DATASET': 'SpeechCommand',
@@ -35,7 +35,7 @@ hyperparameters = {
 def model_pipeline():
 
     
-    with wandb.init(project="CLAR", config=hyperparameters):
+    with wandb.init(project="CLAR", config=hyperparameters, mode="disabled"):
         #access all HPs through wandb.config
         config = wandb.config
 
