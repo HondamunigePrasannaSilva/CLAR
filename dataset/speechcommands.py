@@ -150,11 +150,14 @@ class SPEECHCOMMANDS(Dataset):
         fileid = self._walker[n]
 
         waveform, sample_rate, label, speaker_id, utterance_number = load_speechcommands_item(fileid, self._path)
+
+        # If training and the index is in the index list to be masked, the label is update as None
         
         if self.index_list is not None:
             if self.subset == 'training':
                     if n in self.index_list:
                         label = 'None'
+        
         
         return waveform, sample_rate, label, speaker_id, utterance_number
 

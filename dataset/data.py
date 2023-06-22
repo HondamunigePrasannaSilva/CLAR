@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from speechcommands import SPEECHCOMMANDS
+from dataset.speechcommands import SPEECHCOMMANDS
 from typing import Tuple, Optional, Union
 from torch import Tensor
 import os
@@ -24,9 +24,9 @@ class SubsetSC(SPEECHCOMMANDS):
         def masklabel( percentage = 100, batch_size=256, trainsize = 0):
             if percentage == 100:
                 return None
-            random.seed(0)
-            interval = math.floor(trainsize/batch_size)
-            index_ = [random.sample(range(i, i+interval), int(interval*(1-percentage/100)) ) for i in range(0, trainsize, interval) ]
+
+            random.seed(0) # Important!            
+            index_ = [random.sample(range(i, i+batch_size), int(batch_size*(1-(percentage/100))) ) for i in range(0, trainsize, batch_size) ]
             flattened_list = [item for sublist in index_ for item in sublist]
             return flattened_list
 
@@ -42,9 +42,6 @@ class SubsetSC(SPEECHCOMMANDS):
             self._walker = [w for w in self._walker if w not in excludes]
             
             self.index_list = masklabel(percentage=percentage, batch_size=batch_size, trainsize=len(self._walker))
-
-
-
 
         
 #labels of the dataset, (35)
@@ -112,7 +109,7 @@ def createSpectograms(audio, stft, mel_transform):
 
 def getData(batch_size = 32, num_workers = 0, pin_memory = False, percentage = 1):
 
-    train_set = SubsetSC("training", percentage=percentage)
+    train_set = SubsetSC("training", percentage=percentage, batch_size=32)
     test_set = SubsetSC("testing", percentage=percentage)
     val_set = SubsetSC("validation", percentage=percentage)
     

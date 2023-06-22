@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 #from data import *
 
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class block(nn.Module):
     def __init__(self, in_channels, out_channels, identity_downsample=None,stride=1):
@@ -58,8 +58,10 @@ class ResNet1D(nn.Module):
         #self.layer4 = self._make_layer(block, layers[3], 512, stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool1d(output_size=1)
-        # tagliare qui per prendere 
+        
+         
         # size after avgpool = [32, 512, 1]
+
         #self.fc = nn.Linear(512*self.expansion, num_classes)
     
     def forward(self,x):
@@ -109,100 +111,7 @@ class ResNet1D(nn.Module):
 def CreateResNet1D( num_classes = 10):
     return ResNet1D(block, num_classes=num_classes)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-from tqdm import tqdm
 
 
 
 
-
-
-""" 
-def model_pipeline():
-
-
-    #make the model, data and optimization problem
-    model, criterion, optimizer, trainloader, testloader, validationloader = create()
-
-    #train the model
-    train(model, trainloader, criterion, optimizer, validationloader)
-
-    #test the model
-    print("Accuracy test: ",test(model, testloader))
-        
-    #return model
-
-def create():
-    resnet1d = CreateResNet1D(num_classes=35)
-    #Create a model
-    model = resnet1d.to(device)
-    nparameters = sum(p.numel() for p in model.parameters())
-    print(nparameters)
-    #Create the loss and optimizer
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
-    trainloader,testloader,validationloader = getData()
-
-    return model, criterion, optimizer,trainloader, testloader, validationloader
-
-# Function to train a model.
-def train(model, trainloader, criterion, optimizer, validationloader):
- 
-
-    model.train()
-    losses, valacc = [], []  
-
-    for epoch in range(5):
-        
-        progress_bar = tqdm(trainloader, desc=f'Training epoch {epoch}', leave=False)
-        
-        for batch, (images, labels) in enumerate(progress_bar):
-        
-            loss = train_batch(images, labels,model, optimizer, criterion)
-            progress_bar.update(1)
-            
-            logs = {"loss": loss.detach().item()}
-            progress_bar.set_postfix(**logs)
-        
-            losses.append(loss.item())
-
-    return np.mean(losses)
-
-def train_batch(images, labels, model, optimizer, criterion):
-
-    #insert data into cuda if available
-    images,labels = images.to(device), labels.to(device)
-    
-    # zero the parameter gradients
-    optimizer.zero_grad()
-
-    # forward pass
-    outputs = model(images)
-    loss = criterion(outputs, labels)
-    
-    #backward pass
-    loss.backward()
-
-    #step with optimizer
-    optimizer.step()
-
-    return loss
-
-def test(model, test_loader):
-    model.eval()
-
-    with torch.no_grad():
-        correct, total = 0, 0
-        for images, labels in test_loader:
-            images, labels = images.to(device), labels.to(device)
-            oututs = model(images)
-            _, predicated = torch.max(oututs.data, 1)
-            total += labels.size(0)
-
-            correct += (predicated == labels).sum().item()
-
-        return correct/total
-    
-
-model_pipeline()"""

@@ -14,8 +14,10 @@ class Net(nn.Module):
             - Embedding of audio and spectograms
             - Output of resnet1d and resnet2d to traing the evaluationhead
     """
-    def __init__(self,img_channels = 3, num_classes = 35):
+
+    def __init__(self,img_channels = 3, num_classes = 35, unsupervised = False):
         super(Net, self).__init__()
+        self.unsupervised = unsupervised
         ####################### ENCODER ###################################
         self.resnet_1D = CreateResNet1D(num_classes=num_classes).to(device)
         self.resnet_2D = CreateResNet2D(img_channels=img_channels,num_classes=num_classes).to(device)
@@ -23,13 +25,28 @@ class Net(nn.Module):
         ####################### PROJECTION HEAD ###########################
         self.projectionHead = nn.Sequential(
                                     nn.Linear(256, 256),
+                                    nn.BatchNorm1d(256),
                                     nn.ReLU(),
                                     nn.Linear(256, 128) # Output goes to the contrastive loss!         
                                     )
-        # Last layer of the projection head used to semi-supervised Categorial cross Entropy
-        self.output = nn.Sequential(
+        
+       # Last layer of the projection head used to semi-supervised Categorial cross Entropy
+        if unsupervised == True:
+            self.output = nn.Sequential(
+                                    nn.Linear(256, 256),
+                                    nn.BatchNorm1d(256),
                                     nn.ReLU(),
-                                    nn.Linear(128, num_classes) # Output goes to the contrastive loss!         
+                                    nn.Linear(256, 256),         
+                                    nn.BatchNorm1d(256),
+                                    nn.ReLU(),
+                                    nn.Linear(256, 128) # Output goes to the contrastive loss!         
+                                    )
+        else:
+            
+            self.output = nn.Sequential(
+                                    nn.BatchNorm1d(128),
+                                    nn.ReLU(),
+                                    nn.Linear(128, num_classes) # Output goes to the Categorial cross Entropy         
                                     )
         
         ####################################################################
@@ -47,7 +64,15 @@ class Net(nn.Module):
         audio = audio.squeeze()
         spectograms = self.resnet_2D(input_spectogram)
         spectograms = spectograms.squeeze()
-        
+
+        # If unsupervised the last layer of projection head has 128 output dimension 
+        if self.unsupervised == True:
+            audio_emb = self.output(audio)
+            specs_emb = self.output(spectograms)   
+
+            return audio_emb, specs_emb, audio, spectograms
+        ##################################################
+
         audio_emb = self.projectionHead(audio)
         specs_emb = self.projectionHead(spectograms)
         

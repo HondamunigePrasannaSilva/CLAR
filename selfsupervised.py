@@ -3,13 +3,13 @@ import torch as nn
 from torch import optim
 import wandb
 from tqdm import tqdm
-import utils as utils
-from data import *
+from dataset.data import *
 from net import *
 from augmentation import *
-from contrastive_loss import *
+from contrastiveloss import *
 from EvaluationHead import *
 import Spectrograms as sp
+import argparse
 
 #check for cuda
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
@@ -28,7 +28,7 @@ hyperparameters = {
         'EVAL_EPOCHS':5,
         'N_LABELS': 100,
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'fade_tm_unsupervised'
+        'MODEL_TITLE':'test'
 }
 
 
@@ -164,7 +164,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
 
         criterion = torch.nn.CrossEntropyLoss()
 
-
         for epoch in range(config.EVAL_EPOCHS):
             progress_bar = tqdm(total=len(trainloader), unit='step', leave=False)
             losses = []
@@ -246,6 +245,44 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
     return accuracy_test, validation_accuracy
 
 
-if __name__ == "__main__":
 
-    model_pipeline()
+
+def main():
+    parser = argparse.ArgumentParser(description='CLAR:Contrastive Learning of Auditory Representations ')
+    parser.add_argument("--lr", type=float, default=3e-4, help='learning rate')
+    parser.add_argument("--weight_decay", type=float, default=1e-6, help='Weight decay')
+    parser.add_argument("--dataset", type=str, default="SpeechCommand", help='dataset')
+    parser.add_argument("--b1", type=float, default="0.9", help='beta 1')
+    parser.add_argument("--b2", type=float, default="0.999", help='beta 2')
+    parser.add_argument("--epochs", type=int, default="101", help='Training epochs')
+    parser.add_argument("--Batch_size", type=int, default="256", help='Batch size')
+    parser.add_argument("--Img_channel", type=int, default="3", help='img channel')
+    parser.add_argument("--classes", type=int, default="35", help='dataset class')
+    parser.add_argument("--eval_batch", type=int, default="64", help='Evaluation Batch')
+    parser.add_argument("--eval_epochs", type=int, default="5", help='Evaluation Epoch training')
+    parser.add_argument("--lab_percentage", type=int, default="100", help='Percentage of labels')
+    parser.add_argument("--model_title", type=str, default="test", help='Model name')
+    parser.add_argument("--wandb", type=str, default="disabled", help='Wandb logging')
+
+    args = parser.parse_args()
+
+    hyperparameters['LR'] = args.lr
+    hyperparameters['WEIGHT_DECAY'] = args.weight_decay
+    hyperparameters['DATASET'] = args.dataset
+    hyperparameters['B1'] = args.b1
+    hyperparameters['B2'] = args.b2
+    hyperparameters['EPOCHS'] = args.epochs
+    hyperparameters['BATCH_SIZE'] = args.Batch_size
+    hyperparameters['IMG_CHANNEL'] = args.Img_channel
+    hyperparameters['CLASSES'] = args.classes
+    hyperparameters['EVAL_BATCH'] = args.eval_batch
+    hyperparameters['EVAL_EPOCHS'] = args.eval_epochs
+    hyperparameters['N_LABELS'] = args.lab_percentage
+    hyperparameters['MODEL_TITLE'] = args.model_title
+
+    model_pipeline(hyperparameters, args)
+
+
+if __name__ == "__main__":
+    
+    main()

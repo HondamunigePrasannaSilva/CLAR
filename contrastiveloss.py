@@ -3,15 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 def device_as(t1, t2):
-   """
-   Moves t1 to the device of t2
-   """
    return t1.to(t2.device)
 
 class ContrastiveLoss(nn.Module):
-   """
-   Vanilla Contrastive loss, also called InfoNceLoss as in SimCLR paper
-   """
    def __init__(self, batch_size, temperature=0.5):
        super().__init__()
        self.batch_size = batch_size

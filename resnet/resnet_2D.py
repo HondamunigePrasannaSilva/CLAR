@@ -103,9 +103,3 @@ class ResNet(nn.Module):
 def CreateResNet2D(img_channels=3, num_classes = 10):
     return ResNet(block_resnet2d, image_channels=img_channels, num_classes=num_classes)
 
-"""
-model = CreateResNet2D()
-
-iamge = torch.rand(size=[32,3,100,100])
-
-outut = model(iamge)"""

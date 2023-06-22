@@ -1,38 +1,25 @@
-"""
-    Audio augmentation file
-
-    1. Frequency Transformations:
-
-    (a) Pitch Shift
-    (b) Noise Injection
-    
-    2. Temporal Transformations
-    
-    (a) Fade in/out
-    (b) Time Masking
-    (c) Time Shift (TS): randomly shifts the audio samples forwards or backwards. Samples that 
-        roll beyond the last position are re-introduced at the first position (rollover). The 
-        degree and direction of the shifts were randomly selected for each audio. The maximum 
-        degree that could be shifted was half of the audio signal, while, the minimum was when 
-        no shift applied to the signal.
-    (d) Time Stretching (TST): slows down or speeds up the audio sample (while keeping the pitch unchanged). 
-        In this approach we transformed the signal by first computing the STFT of the signal, stretching 
-        it using a phase vocoder, and computing the inverse STFT to reconstruct the time domain signal.
-        Following those transformations, we down-sampled or cropped the signal to match the same number 
-        of samples as the input signal. When the rate of stretching was greater than 1, the signal was 
-        sped up. Otherwise when the rate of stretching was less than 1, then the signal was slowed down. 
-        The rate of time stretching was randomized for each audio with range values of [0.5, 1.5].
-
-"""
 from typing import Any
 import torchaudio
 import torchaudio.transforms as transforms
 import matplotlib.pyplot as plt
 import random
 import torch
-#from torchmetrics import SignalNoiseRatio
 
+"""
+    Audio augmentation file
+    This file implement 4 of 6 augmentation presented on the paper CLAR
 
+    1. Frequency Transformations:
+    (a) Pitch Shift
+    (b) Noise Injection
+    
+    2. Temporal Transformations
+    (a) Fade in/out
+    (b) Time Masking
+    (c) Time Shift
+    (d) Time Stretching 
+
+"""
 def pitchshift(audio, SAMPLE_RATE=16000, shift = 2):
     """
     Pitch Shift (PS): randomly raises or lowers the pitch of the audio signal.\n
@@ -99,6 +86,28 @@ def timemasking(signal_, batch_size, sample_rate=16000):
     signal_[range_mask] = 0
         
     return signal_
+
+def TimeShift():
+    """
+    randomly shifts the audio samples forwards or backwards. Samples that 
+    roll beyond the last position are re-introduced at the first position (rollover). The 
+    degree and direction of the shifts were randomly selected for each audio. The maximum 
+    degree that could be shifted was half of the audio signal, while, the minimum was when 
+    no shift applied to the signal.
+    """
+    return
+
+def timeStretching():
+    """
+    slows down or speeds up the audio sample (while keeping the pitch unchanged). 
+    In this approach we transformed the signal by first computing the STFT of the signal, stretching 
+    it using a phase vocoder, and computing the inverse STFT to reconstruct the time domain signal.
+    Following those transformations, we down-sampled or cropped the signal to match the same number 
+    of samples as the input signal. When the rate of stretching was greater than 1, the signal was 
+    sped up. Otherwise when the rate of stretching was less than 1, then the signal was slowed down. 
+    The rate of time stretching was randomized for each audio with range values of [0.5, 1.5].
+    """
+    return
 
 
 

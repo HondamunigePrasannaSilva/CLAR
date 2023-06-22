@@ -34,19 +34,20 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
     return  spectograms, audio
 ```
 # How to run the code
-You can run these tests separately. Make sure you activate the env before. train.py is for training clar (semisupervised). supervised.py for suprevised training and selfsupervised.py for selfsupervised trianing.The hyperparamter can be found inside each file.
+You can run these tests separately. Make sure you activate the env before.The hyperparamter can be found inside each file.
 
 ```
 $python supervised.py  --epochs=101  --Batch_size=256 --wandb=enabled
 $python selfsupervised.py  --epochs=101  --Batch_size=256 --wandb=enabled
-$python train.py  --epochs=101  --Batch_size=256 --wandb=enabled --lab_percentage=1
+$python semisupervised.py  --epochs=101  --Batch_size=256 --wandb=enabled --lab_percentage=1
 ```
 
-# Spectograms, Melspectograms and Phase
-The file Spectograms.py serve to achive the magnitude and phase spectogram, the melspectograms is achived using directly torchaudio. The function **createSpectograms()** will create the batch composed by stacked Magnitude, Mel and Phase spectograms.
+We higly reccomand to install wandb and  run with --wandb=enabled if you desire to log the metrics, otherwise leave it disabled.
 
-# Logging
-We higly reccomand to install wandb and remove mode="disabled" from the training pipeling if you desire to log the metrics, otherwise leave it disabled.
+# Spectograms, Melspectograms and Phase
+The file **Spectograms.py** serve to achive the magnitude and phase spectogram, the melspectograms is achived using directly torchaudio. The function **createSpectograms()** will create the batch composed by stacked Magnitude, Mel and Phase spectograms.
+
+
 
 
 

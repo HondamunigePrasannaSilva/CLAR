@@ -3,10 +3,10 @@ import torch as nn
 from torch import optim
 import wandb
 from tqdm import tqdm
-from data import *
+from dataset.data import *
 from net import *
 from augmentation import *
-from contrastive_loss import *
+from contrastiveloss import *
 from EvaluationHead import *
 import Spectrograms as sp
 import argparse
@@ -28,7 +28,7 @@ hyperparameters = {
         'EVAL_EPOCHS':1,
         'N_LABELS': 20,
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'fade_tm_20_EV1'
+        'MODEL_TITLE':'test'
 }
 
 
@@ -151,8 +151,6 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
 
     return  spectograms, audio
 
-
-
 def evaluationphase(model, config, mel_transform, stft_trasform):
     
     model.eval()
@@ -256,6 +254,7 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
 
     return accuracy_test, validation_accuracy
 
+
 def main():
     parser = argparse.ArgumentParser(description='CLAR:Contrastive Learning of Auditory Representations ')
     parser.add_argument("--lr", type=float, default=3e-4, help='learning rate')
@@ -270,7 +269,7 @@ def main():
     parser.add_argument("--eval_batch", type=int, default="64", help='Evaluation Batch')
     parser.add_argument("--eval_epochs", type=int, default="5", help='Evaluation Epoch training')
     parser.add_argument("--lab_percentage", type=int, default="100", help='Percentage of labels')
-    parser.add_argument("--model_title", type=str, default="test", help='Model name')
+    parser.add_argument("--model_title", type=str, default="semisupervised_test", help='Model name')
     parser.add_argument("--wandb", type=str, default="disabled", help='Wandb logging')
 
     args = parser.parse_args()
