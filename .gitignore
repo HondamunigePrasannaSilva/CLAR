@@ -7,4 +7,3 @@ speech_commands_v0.02.tar.gz
 todo
 Notebooks/
 models/*.pt
-net_mio.py

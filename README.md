@@ -16,6 +16,27 @@ The paper CLAR adopted three different datasets: Speech Commands, NSynth, and En
 # CLAR Architecture
 ![method](img/methods.png)
 
+# Project Structure
+```
+\clar
+├── augmentation.py         - implements augmentation of the paper 
+├── contrastiveloss.py
+├── dataset                 - contains implementation to obatin dataloader for train , test and validation set 
+│   ├── data.py             
+│   └── speechcommands.py   
+├── EvaluationHead.py       - implements the evaluation head 
+├── net.py                  - implements CLAR-net with projection head
+├── README.md
+├── requirements.txt        
+├── resnet                  - implements the encoders
+│   ├── resnet_1D.py
+│   └── resnet_2D.py
+├── selfsupervised.py       - implement the selfsupervised version of CLAR
+├── semisupervised.py       - implement the semisupervised(CLAR) version
+├── Spectrograms.py         - implement the stft class to extract magnitude and phase spectogram
+└── supervised.py           - implement the supervised version of CLAR
+```
+
 # Augmentation
 The paper CLAR studied various augmentations, including Pitch Shift (High and Low steps), Fade In/Out, Time Masking, Time Shift, Time Stretch (Low and High Rate), and Noise (White, Pink, Brown). In this implementation, three augmentations are presented: *Fade In/Out, White Noise, and Time Masking*. To add other augmentations, you should insert them into the **augmentation.py** file. And call them in the function *createModelInput()*
 
@@ -33,6 +54,7 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
 
     return  spectograms, audio
 ```
+
 # How to run the code
 You can run these tests separately. Make sure you activate the env before.The hyperparamter can be found inside each file.
 
