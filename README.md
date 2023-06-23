@@ -74,7 +74,7 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
 The file **Spectograms.py** serve to achive the magnitude and phase spectogram, the melspectograms is achived using directly torchaudio. The function **createSpectograms()** will create the batch composed by stacked Magnitude, Mel and Phase spectograms.
 
 # Half-precision floating-point format
-This implementation use half-precision floating-point format to use large batch size in your GPU! and it helps the contrastive loss to operater better and lastly making the training process faster. This leads to a slightly worse accuracy than using FP32! 
+This implementation use half-precision floating-point format to use large batch size in your GPU, which helps the contrastive loss to operater better and lastly making the training process faster. This leads to a slightly worse accuracy than using FP32! 
 
 
 
