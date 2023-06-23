@@ -24,7 +24,7 @@ class Net(nn.Module):
         
         ####################### PROJECTION HEAD ###########################
         self.projectionHead = nn.Sequential(
-                                    nn.Linear(256, 256),
+                                    nn.Linear(512, 256),
                                     nn.BatchNorm1d(256),
                                     nn.ReLU(),
                                     nn.Linear(256, 128) # Output goes to the contrastive loss!         
@@ -33,7 +33,7 @@ class Net(nn.Module):
        # Last layer of the projection head used to semi-supervised Categorial cross Entropy
         if unsupervised == True:
             self.output = nn.Sequential(
-                                    nn.Linear(256, 256),
+                                    nn.Linear(512, 256),
                                     nn.BatchNorm1d(256),
                                     nn.ReLU(),
                                     nn.Linear(256, 256),         

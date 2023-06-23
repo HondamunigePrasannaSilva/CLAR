@@ -18,11 +18,12 @@ class EvaluationHead(nn.Module):
 
         self.evaluation = nn.Sequential(
                     # for linear evaluation
-                    nn.Linear(256,num_classes)
+                    nn.Linear(512,num_classes)
 
                     # for non linear evaluation
+                    #nn.Linear(512,256)
                     #nn.RelU(),
-                    #nn.Linear(256, 128),
+                    #nn.Linear(256, 256),
                     #nn.RelU(),
                     #nn.Linear(256, 128),
         )
