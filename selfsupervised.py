@@ -12,7 +12,7 @@ import Spectrograms as sp
 import argparse
 
 #check for cuda
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 hyperparameters = {
@@ -26,16 +26,16 @@ hyperparameters = {
         'CLASSES': 35,
         'EVAL_BATCH':64,
         'EVAL_EPOCHS':5,
-        'N_LABELS': 100,
+        'N_LABELS': 100,               
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'test'
+        'MODEL_TITLE':'selsupervised'
 }
 
 
-def model_pipeline():
+def model_pipeline(hyper, args):
 
     
-    with wandb.init(project="CLAR", config=hyperparameters):
+    with wandb.init(project="CLAR", config=hyper, mode=args.wandb):
         #access all HPs through wandb.config
         config = wandb.config
 
@@ -45,8 +45,6 @@ def model_pipeline():
         #train the model
         train(model, loss, optimizer, trainloader,config, mel_transform, stft_trasform)
 
-        #test the model
-        #print("Accuracy test: ",test(model, testloader))
         
     
 def create(config):
@@ -112,6 +110,7 @@ def train(model, closs, optimizer, trainloader,config, mel_transform, stft_trasf
             # save loss to statistics
             losses.append(loss.item())
             
+            
         # end for batch 
         
 
@@ -138,7 +137,6 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
     # Create the augmented spectograms size [BATCH_SIZE, 3, 200, 200]
     spectograms = createSpectograms(audio, stft_trasform, mel_transform)
     spectograms = spectograms.to(device)
-
 
     return  spectograms, audio
 
@@ -175,7 +173,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
 
                 labels_cat = torch.cat([labels, labels], dim = 0).to(device)
 
-            
                 # Use frozen encoder                
                 with torch.no_grad():
                     _, _, frozen_audio, frozen_spects = model(spectograms, audios)
@@ -185,7 +182,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
                 loss = criterion(outputs, labels_cat)
 
                 # Calculate loss and backward
-                
                 loss.backward()
                 optimizer.step()
                 
@@ -195,8 +191,7 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
                 progress_bar.set_description(f"Epoch {epoch+1}/{config.EVAL_EPOCHS}")
                 progress_bar.set_postfix(loss=np.mean(losses))  # Update the loss value
                 progress_bar.update(1)
-
-                
+            
             # end for batch 
             
             
@@ -222,7 +217,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
                 total += labels_cat.size(0)
                 
                 correct += (predicated == labels_cat).sum().item()
-                # finire di calcolare il max!                    
             
                 #progress bar stuff
                 progress_bar.set_description(f"Epoch {i+1}/{len(dataloader)}")
@@ -236,7 +230,7 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
     model_ = train(model, trainloader)
     accuracy_test = evaluation(model, model_, testloader)
     validation_accuracy = evaluation(model, model_, valloader)
-
+    print(f"Accuracy on validation{ validation_accuracy}. Accuracy on test: {accuracy_test}")
     model.train()
     for param in model.parameters():
         param.requires_grad = True

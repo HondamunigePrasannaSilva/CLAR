@@ -28,7 +28,7 @@ hyperparameters = {
         'EVAL_EPOCHS':1,
         'N_LABELS': 20,
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'test'
+        'MODEL_TITLE':'clar'
 }
 
 
@@ -45,8 +45,7 @@ def model_pipeline(hyper, args):
         #train the model
         train(model, loss,ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform)
 
-        #test the model
-        #print("Accuracy test: ",test(model, testloader))
+
         
     
 def create(config):
@@ -57,9 +56,9 @@ def create(config):
     # Create model
     model = Net(img_channels=config.IMG_CHANNEL, num_classes = config.CLASSES).to(device)
 
-    # Define the constrastive loss
+    # Define the constrastive loss and crossentropy loss
     loss = ContrastiveLoss(batch_size=config.BATCH_SIZE)
-    ce_loss = nn.CrossEntropyLoss(ignore_index=35)
+    ce_loss = nn.CrossEntropyLoss(ignore_index=35)   #index=35 is used to mask the labels!
 
     #Define Melspectogram and STFT (Magnitude and Phase) 
     mel_transform = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=2048, hop_length=128, n_mels=128,f_min=40, f_max=8000, mel_scale="slaney").to(device)
@@ -144,9 +143,6 @@ def createModelInput(audio,mel_transform, stft_trasform, augmentation=True):
     
     # Create the augmented spectograms size [BATCH_SIZE, 3, 200, 200]
     spectograms = createSpectograms(audio, stft_trasform, mel_transform)
-
-    # Insert them on GPU
-   # audios = audio.to(device)
     spectograms = spectograms.to(device)
 
     return  spectograms, audio
@@ -170,7 +166,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
         optimizer = optim.Adam(modelEvaluation.parameters(), lr=config.LR)
 
         criterion = torch.nn.CrossEntropyLoss()
-
 
         for epoch in range(config.EVAL_EPOCHS):
             progress_bar = tqdm(total=len(trainloader), unit='step', leave=False)
@@ -232,7 +227,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
                 total += labels_cat.size(0)
                 
                 correct += (predicated == labels_cat).sum().item()
-                # finire di calcolare il max!                    
             
                 #progress bar stuff
                 progress_bar.set_description(f"Epoch {i+1}/{len(dataloader)}")
@@ -246,6 +240,7 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
     model_ = train(model, trainloader)
     accuracy_test = evaluation(model, model_, testloader)
     validation_accuracy = evaluation(model, model_, valloader)
+    print(f"Accuracy on validation{ validation_accuracy}. Accuracy on test: {accuracy_test}")
 
     model.train()
     for param in model.parameters():

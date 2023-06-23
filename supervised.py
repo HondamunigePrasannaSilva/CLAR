@@ -27,25 +27,23 @@ hyperparameters = {
         'EVAL_EPOCHS':5,
         'N_LABELS': 100,
         'DATASET': 'SpeechCommand',
-        'MODEL_TITLE':'fade_tm_1_supervised'
+        'MODEL_TITLE':'supervised'
 }
 
 
-def model_pipeline(hyper):
+def model_pipeline(hyper, args):
 
     
-    with wandb.init(project="CLAR", config=hyper, mode='disabled'):
+    with wandb.init(project="CLAR", config=hyper, mode=args.wandb):
         #access all HPs through wandb.config
         config = wandb.config
 
         #make the model, data and optimization problem
-        model, loss,ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform = create(config)
+        model, ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform = create(config)
 
         #train the model
-        train(model, loss,ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform)
+        train(model, ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform)
 
-        #test the model
-        #print("Accuracy test: ",test(model, testloader))
         
     
 def create(config):
@@ -56,9 +54,8 @@ def create(config):
     # Create model
     model = Net(img_channels=config.IMG_CHANNEL, num_classes = config.CLASSES).to(device)
 
-    # Define the constrastive loss
-    loss = ContrastiveLoss(batch_size=config.BATCH_SIZE)
-    ce_loss = nn.CrossEntropyLoss(ignore_index=35)
+    # Define the CrossEntropy loss
+    ce_loss = nn.CrossEntropyLoss(ignore_index=35) # Ignore index 35 which is None, used to mask the labels!
 
     #Define Melspectogram and STFT (Magnitude and Phase) 
     mel_transform = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=2048, hop_length=128, n_mels=128,f_min=40, f_max=8000, mel_scale="slaney").to(device)
@@ -67,10 +64,10 @@ def create(config):
     # Define the optimizer, the paper use  
     optimizer = optim.Adam(model.parameters(), lr=config.LR, betas=(config.B1, config.B2), weight_decay=config.WEIGHT_DECAY)
 
-    return model, loss,ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform
+    return model, ce_loss, optimizer, trainloader, testloader, valloader, mel_transform, stft_trasform
 
 
-def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform):
+def train(model, ce_loss, optimizer, trainloader,config, mel_transform, stft_trasform):
 
     #telling wand to watch
     if wandb.run is not None:
@@ -94,7 +91,6 @@ def train(model, closs,ce_loss, optimizer, trainloader,config, mel_transform, st
             # Model's ouput two emb vectors
             with torch.cuda.amp.autocast():
                 audio_emb, spect_emb, _, _, output = model(spectograms,audios)
-                print(labels)
 
                 categorical_cross_entropy =  ce_loss(output, labels)
                 loss = categorical_cross_entropy
@@ -229,7 +225,6 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
                 total += labels_cat.size(0)
                 
                 correct += (predicated == labels_cat).sum().item()
-                # finire di calcolare il max!                    
             
                 #progress bar stuff
                 progress_bar.set_description(f"Epoch {i+1}/{len(dataloader)}")
@@ -243,6 +238,7 @@ def evaluationphase(model, config, mel_transform, stft_trasform):
     model_ = train(model, trainloader)
     accuracy_test = evaluation(model, model_, testloader)
     validation_accuracy = evaluation(model, model_, valloader)
+    print(f"Accuracy on validation{ validation_accuracy}. Accuracy on test: {accuracy_test}")
 
     model.train()
     for param in model.parameters():

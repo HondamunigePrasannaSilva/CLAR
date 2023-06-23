@@ -46,7 +46,7 @@ class Net(nn.Module):
             self.output = nn.Sequential(
                                     nn.BatchNorm1d(128),
                                     nn.ReLU(),
-                                    nn.Linear(128, num_classes) # Output goes to the Categorial cross Entropy         
+                                    nn.Linear(128, num_classes) # Output goes to the cross Entropy         
                                     )
         
         ####################################################################
@@ -57,7 +57,7 @@ class Net(nn.Module):
             Output:
                 - audio_emb, specs_emb used for contrastive loss
                 - audio, spectograms used for Evaluation layer
-                - output used for semi supervised - Categorical cross entropy
+                - output used for semi supervised - cross entropy
         """
         
         audio = self.resnet_1D(input_audio)
